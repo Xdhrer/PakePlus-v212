@@ -1,0 +1,2107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D长方体</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+            color: #333;
+            --primary-color: #4CAF50;
+            --primary-hover: #45a049;
+            --secondary-color: #007BFF;
+            --warn-color: #dc3545;
+            --caution-color: #ffc107;
+            --panel-bg: white;
+            --hint-bg: rgba(255, 255, 255, 0.8);
+            --hint-warn-bg: rgba(255, 200, 200, 0.8);
+            --border-color: #ddd;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --panel-width: 320px;
+            --panel-padding: 24px;
+            --section-gap: 20px;
+            --button-height: 44px;
+            --input-height: 36px;
+            --compact-button-height: 36px;
+            --compact-input-height: 32px;
+            --compact-padding: 16px;
+            --compact-section-gap: 15px;
+        }
+
+        #control-panel {
+            width: var(--panel-width);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: var(--panel-padding);
+            display: flex;
+            flex-direction: column;
+            gap: var(--section-gap);
+            z-index: 10;
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: transform 0.3s ease;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        }
+
+        #control-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #control-panel::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #control-panel::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        #control-panel::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        #operation-hint {
+            position: absolute;
+            top: 0;
+            left: var(--panel-width);
+            right: 0;
+            height: 56px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            z-index: 5;
+            transition: background-color 0.3s ease, left 0.3s ease;
+        }
+
+        #render-area {
+            flex-grow: 1;
+            background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-radius: 0 0 0 24px;
+            position: relative;
+            min-width: 0;
+        }
+
+        .panel-section {
+            border-bottom: 1px solid #eee;
+            padding-bottom: calc(var(--section-gap) * 0.75);
+        }
+
+        .panel-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .panel-section h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: 600;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-section h3 i {
+            font-size: 14px;
+        }
+
+        .dimension-control {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            height: var(--input-height);
+        }
+
+        .dimension-control label {
+            width: 40px;
+            text-align: right;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .dimension-control input {
+            width: 50px;
+            height: var(--input-height);
+            text-align: center;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            -moz-appearance: textfield;
+            appearance: textfield;
+            font-size: 14px;
+        }
+
+        .dimension-control input::-webkit-outer-spin-button,
+        .dimension-control input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .dimension-control button {
+            width: 30px;
+            height: 30px;
+            margin: 0 6px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .dimension-control button:hover {
+            background-color: #e0e0e0;
+            transform: scale(1.05);
+        }
+
+        .dimension-control button:active {
+            transform: scale(0.95);
+        }
+
+        #update-cube {
+            width: 100%;
+            min-height: var(--button-height);
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            margin-top: 10px;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+
+        #update-cube:hover {
+            background-color: var(--primary-hover);
+            transform: scale(1.02);
+        }
+
+        #update-cube:active {
+            transform: scale(0.98);
+        }
+
+        .color-picker {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            gap: 5px;
+        }
+
+        .color-swatch {
+            flex: 1;
+            aspect-ratio: 1 / 1;
+            min-width: 30px;
+            max-width: 40px;
+            border: 2px solid #555;
+            cursor: pointer;
+            transition: transform 0.15s ease, border 0.2s ease;
+            border-radius: 10px;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch.active {
+            border: 4px solid #000;
+            transform: scale(1.05);
+        }
+
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .mode-button {
+            min-height: var(--button-height);
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+            text-align: center;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .mode-button:hover {
+            background-color: #e0e0e0;
+            transform: scale(1.02);
+        }
+
+        .mode-button:active {
+            transform: scale(0.98);
+        }
+
+        .mode-button.active {
+            background-color: var(--secondary-color);
+            color: white;
+            border-color: var(--secondary-color);
+        }
+
+        #toggle-paint-face.active {
+            background-color: var(--caution-color);
+            color: #333;
+            border-color: var(--caution-color);
+        }
+
+        #toggle-paint-face.active:hover {
+            background-color: #e0a800;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .action-button {
+            flex: 1;
+            min-height: var(--button-height);
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: transform 0.15s ease, background-color 0.15s ease;
+            text-align: center;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .action-button:hover {
+            background-color: #e0e0e0;
+            transform: scale(1.02);
+        }
+
+        .action-button:active {
+            transform: scale(0.98);
+        }
+
+        #reset-button {
+            background-color: var(--warn-color);
+            color: white;
+            border-color: var(--warn-color);
+        }
+
+        #reset-button:hover {
+            background-color: #c82333;
+        }
+
+        #undo-button {
+            background-color: var(--caution-color);
+            color: #333;
+            border-color: var(--caution-color);
+        }
+
+        #undo-button:hover {
+            background-color: #e0a800;
+        }
+
+        #restore-position-button {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        #restore-position-button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        #loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            display: none;
+            z-index: 100;
+            font-size: 18px;
+        }
+
+        #loading-indicator::after {
+            content: ' .';
+            animation: loadingDots 1.5s steps(3, end) infinite;
+        }
+
+        @keyframes loadingDots {
+            0% { content: ' .'; }
+            33% { content: ' ..'; }
+            66% { content: ' ...'; }
+            100% { content: ' .'; }
+        }
+
+        #toggle-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 44px;
+            height: 44px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            z-index: 20;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            user-select: none;
+        }
+
+        #toggle-panel:hover {
+            background-color: rgba(255, 255, 255, 1);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-color: #e9ecef !important;
+            border-color: #ced4da !important;
+            color: #6c757d !important;
+            transform: none !important;
+        }
+
+        button:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        @media (max-height: 700px) {
+            body {
+                --panel-padding: var(--compact-padding);
+                --section-gap: var(--compact-section-gap);
+                --button-height: var(--compact-button-height);
+                --input-height: var(--compact-input-height);
+            }
+
+            .panel-section h3 {
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+
+            .panel-section h3 i {
+                font-size: 12px;
+            }
+
+            .dimension-control {
+                margin-bottom: 8px;
+            }
+
+            .dimension-control label {
+                font-size: 13px;
+            }
+
+            .dimension-control input {
+                font-size: 13px;
+            }
+
+            .mode-button, .action-button, #update-cube {
+                font-size: 14px;
+                padding: 8px;
+            }
+
+            .mode-buttons {
+                gap: 8px;
+            }
+
+            .action-buttons {
+                gap: 8px;
+            }
+
+            #operation-hint {
+                height: 48px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-height: 550px) {
+            body {
+                --panel-padding: 12px;
+                --section-gap: 12px;
+                --button-height: 32px;
+                --input-height: 28px;
+            }
+
+            .panel-section h3 {
+                font-size: 13px;
+                margin-bottom: 6px;
+            }
+
+            .dimension-control {
+                margin-bottom: 6px;
+            }
+
+            .dimension-control button {
+                width: 26px;
+                height: 26px;
+                font-size: 14px;
+            }
+
+            .color-swatch {
+                min-width: 26px;
+                max-width: 32px;
+            }
+
+            #operation-hint {
+                height: 40px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            body {
+                flex-direction: column;
+            }
+
+            #control-panel {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+                overflow-y: auto;
+                box-shadow: 0 2px 10px var(--shadow-color);
+                position: relative;
+                transform: none !important;
+                border-right: none;
+                border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            }
+
+            #operation-hint {
+                position: relative;
+                left: 0;
+                top: auto;
+                bottom: auto;
+                width: 100%;
+                border-top: 1px solid var(--border-color);
+                border-bottom: none;
+            }
+
+            #render-area {
+                height: 60vh;
+                flex-grow: 0;
+            }
+
+            #toggle-panel {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #control-panel {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 85%;
+                max-width: 320px;
+                height: 100%;
+                max-height: 100vh;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                z-index: 100;
+                border-right: 1px solid rgba(226, 232, 240, 0.8);
+                border-bottom: none;
+            }
+
+            #control-panel.expanded {
+                transform: translateX(0);
+                box-shadow: 2px 0 10px rgba(0,0,0,0.15);
+            }
+
+            #toggle-panel {
+                display: flex;
+                z-index: 110;
+            }
+
+            #operation-hint {
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: auto;
+                width: 100%;
+                border-bottom: 1px solid var(--border-color);
+                border-top: none;
+                z-index: 5;
+            }
+
+            #render-area {
+                height: 100vh;
+                flex-grow: 1;
+            }
+
+            .mode-button, .action-button {
+                min-height: 44px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #control-panel {
+                width: 90%;
+            }
+            
+            body {
+                --panel-padding: var(--compact-padding);
+            }
+        }
+
+        @media (max-height: 480px) and (max-width: 768px) {
+            #control-panel {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                top: auto;
+                width: 100%;
+                max-width: 100%;
+                height: auto;
+                max-height: 70vh;
+                transform: translateY(100%);
+                border-right: none;
+                border-top: 1px solid rgba(226, 232, 240, 0.8);
+                border-radius: 16px 16px 0 0;
+            }
+
+            #control-panel.expanded {
+                transform: translateY(0);
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+            }
+
+            #toggle-panel {
+                top: auto;
+                bottom: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            #operation-hint {
+                top: 0;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .panel-section {
+            padding-right: 6px;
+        }
+
+        @media (pointer: coarse) {
+            .dimension-control button,
+            .color-swatch,
+            .mode-button,
+            .action-button,
+            #update-cube {
+                min-height: 44px;
+                min-width: 44px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="control-panel">
+        <div class="panel-section">
+            <h3><i class="fas fa-ruler-combined"></i> 尺寸调节</h3>
+            <div class="dimension-control">
+                <label for="length">长:</label>
+                <button class="decrement" data-target="length" aria-label="减少长度">-</button>
+                <input type="number" id="length" min="1" max="20" value="5" aria-label="长度">
+                <button class="increment" data-target="length" aria-label="增加长度">+</button>
+            </div>
+            <div class="dimension-control">
+                <label for="width">宽:</label>
+                <button class="decrement" data-target="width" aria-label="减少宽度">-</button>
+                <input type="number" id="width" min="1" max="20" value="5" aria-label="宽度">
+                <button class="increment" data-target="width" aria-label="增加宽度">+</button>
+            </div>
+            <div class="dimension-control">
+                <label for="height">高:</label>
+                <button class="decrement" data-target="height" aria-label="减少高度">-</button>
+                <input type="number" id="height" min="1" max="20" value="5" aria-label="高度">
+                <button class="increment" data-target="height" aria-label="增加高度">+</button>
+            </div>
+            <button id="update-cube"><i class="fas fa-sync-alt"></i> 更新立方体</button>
+        </div>
+
+        <div class="panel-section">
+            <h3><i class="fas fa-palette"></i> 颜色选择</h3>
+            <div class="color-picker">
+                <div class="color-swatch active" data-color="#FF0000" style="background-color: #FF0000;" aria-label="选择红色"></div>
+                <div class="color-swatch" data-color="#FFFF00" style="background-color: #FFFF00;" aria-label="选择黄色"></div>
+                <div class="color-swatch" data-color="#00FF00" style="background-color: #00FF00;" aria-label="选择绿色"></div>
+                <div class="color-swatch" data-color="#0000FF" style="background-color: #0000FF;" aria-label="选择蓝色"></div>
+                <div class="color-swatch" data-color="#FFFFFF" style="background-color: #FFFFFF;" aria-label="选择白色"></div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <h3><i class="fas fa-mouse-pointer"></i> 操作模式</h3>
+            <div class="mode-buttons">
+                <button class="mode-button active" data-mode="rotate"><i class="fas fa-sync"></i> 旋转模式</button>
+                <button class="mode-button" data-mode="drag"><i class="fas fa-hand-rock"></i> 拖动模式</button>
+                <button class="mode-button" data-mode="color"><i class="fas fa-paint-brush"></i> 涂色模式</button>
+            </div>
+            <div id="paint-face-toggle-container" style="display: none; margin-top: 10px;">
+                <button id="toggle-paint-face" class="mode-button">启用整面涂色</button>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <h3><i class="fas fa-tools"></i> 操作按钮</h3>
+            <div class="action-buttons" style="flex-wrap: wrap; gap: 8px;">
+                <button id="reset-button" class="action-button" style="flex: 1 1 45%;"><i class="fas fa-redo"></i> 重置</button>
+                <button id="undo-button" class="action-button" disabled style="flex: 1 1 45%;"><i class="fas fa-undo"></i> 撤销</button>
+                <button id="restore-position-button" class="action-button" disabled style="flex: 1 1 100%;"><i class="fas fa-home"></i> 一键归位</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="operation-hint" role="status" aria-live="polite">当前为旋转模式：点击空白区域并拖动可旋转视角</div>
+    <div id="render-area"></div>
+    <div id="loading-indicator" role="alert" aria-busy="true">加载中</div>
+    <button id="toggle-panel" aria-label="切换控制面板" aria-expanded="false">☰</button>
+
+    <script>
+    const CONFIG = {
+        defaultDimensions: { length: 5, width: 5, height: 5 },
+        maxDimension: 20,
+        minDimension: 1,
+        maxHistoryLength: 20,
+        defaultColor: '#FF0000',
+        defaultMode: 'rotate',
+        camera: {
+            fov: 60,
+            near: 0.1,
+            far: 1000
+        },
+        dragSnapThreshold: 0.5,
+        snapDistance: 0.3,
+        colors: {
+            white: 0xffffff,
+            background: 0xF5F5F5,
+            line: 0x000000,
+            preview: 0x88ff88,
+            previewInvalid: 0xff8888
+        }
+    };
+
+    class EventBus {
+        constructor() {
+            this.events = {};
+        }
+
+        on(event, callback) {
+            if (!this.events[event]) {
+                this.events[event] = [];
+            }
+            this.events[event].push(callback);
+        }
+
+        emit(event, data) {
+            if (!this.events[event]) return;
+            this.events[event].forEach(callback => callback(data));
+        }
+
+        off(event, callback) {
+            if (!this.events[event]) return;
+            this.events[event] = this.events[event].filter(cb => cb !== callback);
+        }
+    }
+
+    class StateManager {
+        constructor() {
+            this.state = {
+                dimensions: { ...CONFIG.defaultDimensions },
+                currentMode: CONFIG.defaultMode,
+                currentColor: CONFIG.defaultColor,
+                isPaintingWholeFace: false,
+                isLoading: false,
+                operationHistory: [],
+                displacedCubes: []
+            };
+            this.listeners = [];
+        }
+
+        get(key) {
+            return key ? this.state[key] : this.state;
+        }
+
+        set(key, value) {
+            this.state[key] = value;
+            this.notify(key, value);
+        }
+
+        update(updates) {
+            Object.entries(updates).forEach(([key, value]) => {
+                this.state[key] = value;
+            });
+            this.notify(null, this.state);
+        }
+
+        subscribe(listener) {
+            this.listeners.push(listener);
+        }
+
+        notify(key, value) {
+            this.listeners.forEach(listener => listener(key, value));
+        }
+
+        addDisplacedCube(cubeIndex) {
+            if (!this.state.displacedCubes.includes(cubeIndex)) {
+                this.state.displacedCubes.push(cubeIndex);
+            }
+        }
+
+        removeDisplacedCube(cubeIndex) {
+            const index = this.state.displacedCubes.indexOf(cubeIndex);
+            if (index > -1) {
+                this.state.displacedCubes.splice(index, 1);
+            }
+        }
+
+        clearDisplacedCubes() {
+            this.state.displacedCubes = [];
+        }
+
+        hasDisplacedCubes() {
+            return this.state.displacedCubes.length > 0;
+        }
+    }
+
+    class MaterialPool {
+        constructor() {
+            this.materials = new Map();
+        }
+
+        getMaterial(color) {
+            const key = color.toString();
+            if (!this.materials.has(key)) {
+                this.materials.set(key, new THREE.MeshStandardMaterial({
+                    color: color,
+                    metalness: 0.1,
+                    roughness: 0.5,
+                    polygonOffset: true,
+                    polygonOffsetFactor: 1,
+                    polygonOffsetUnits: 1
+                }));
+            }
+            return this.materials.get(key).clone();
+        }
+
+        dispose() {
+            this.materials.forEach(material => material.dispose());
+            this.materials.clear();
+        }
+    }
+
+    class SceneManager {
+        constructor() {
+            this.scene = null;
+            this.camera = null;
+            this.renderer = null;
+            this.controls = null;
+            this.cubes = [];
+            this.cubeData = [];
+            this.originalPositions = [];
+            this.occupiedPositions = new Map();
+            this.geometryCache = null;
+            this.lineMaterialCache = null;
+            this.materialPool = new MaterialPool();
+            this.renderRequested = false;
+            this.previewCube = null;
+        }
+
+        init(container) {
+            this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(CONFIG.colors.background);
+
+            this.geometryCache = new THREE.BoxGeometry(1, 1, 1);
+            this.lineMaterialCache = new THREE.LineBasicMaterial({ 
+                color: CONFIG.colors.line, 
+                linewidth: 1 
+            });
+
+            const aspect = container.clientWidth / container.clientHeight;
+            this.camera = new THREE.PerspectiveCamera(
+                CONFIG.camera.fov, 
+                aspect, 
+                CONFIG.camera.near, 
+                CONFIG.camera.far
+            );
+            this.camera.position.set(10, 10, 10);
+            this.camera.lookAt(this.scene.position);
+
+            this.renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true,
+                preserveDrawingBuffer: true
+            });
+            this.renderer.setSize(container.clientWidth, container.clientHeight);
+            this.renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(this.renderer.domElement);
+
+            this.setupLights();
+            this.setupControls();
+            this.createPreviewCube();
+        }
+
+        setupLights() {
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            this.scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            directionalLight.position.set(10, 20, 15);
+            this.scene.add(directionalLight);
+            
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            fillLight.position.set(-10, -10, -10);
+            this.scene.add(fillLight);
+        }
+
+        setupControls() {
+            this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.05;
+            this.controls.screenSpacePanning = true;
+            this.controls.minDistance = 3;
+            this.controls.maxDistance = 100;
+            this.controls.addEventListener('change', () => this.requestRender());
+        }
+
+        createPreviewCube() {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshBasicMaterial({
+                color: CONFIG.colors.preview,
+                transparent: true,
+                opacity: 0.5,
+                depthWrite: false
+            });
+            this.previewCube = new THREE.Mesh(geometry, material);
+            this.previewCube.visible = false;
+            this.scene.add(this.previewCube);
+        }
+
+        showPreviewCube(position) {
+            if (this.previewCube) {
+                this.previewCube.position.copy(position);
+                this.previewCube.visible = true;
+                this.requestRender();
+            }
+        }
+
+        hidePreviewCube() {
+            if (this.previewCube) {
+                this.previewCube.visible = false;
+                this.requestRender();
+            }
+        }
+
+        createCuboid(dimensions) {
+            this.clearCuboid();
+            const { length, width, height } = dimensions;
+            const offsetX = (length - 1) / 2;
+            const offsetY = (height - 1) / 2;
+            const offsetZ = (width - 1) / 2;
+
+            this.occupiedPositions.clear();
+
+            for (let x = 0; x < length; x++) {
+                for (let y = 0; y < height; y++) {
+                    for (let z = 0; z < width; z++) {
+                        const materials = Array(6).fill().map(() => 
+                            this.materialPool.getMaterial(CONFIG.colors.white)
+                        );
+
+                        const cube = new THREE.Mesh(this.geometryCache, materials);
+                        const position = new THREE.Vector3(x - offsetX, y - offsetY, z - offsetZ);
+                        cube.position.copy(position);
+
+                        const edges = new THREE.EdgesGeometry(this.geometryCache);
+                        const line = new THREE.LineSegments(edges, this.lineMaterialCache);
+                        cube.add(line);
+
+                        const cubeIndex = this.cubes.length;
+                        this.cubes.push(cube);
+                        this.originalPositions.push(position.clone());
+                        this.cubeData.push({
+                            cube,
+                            gridPosition: { x, y, z },
+                            originalIndex: cubeIndex
+                        });
+                        this.scene.add(cube);
+
+                        const posKey = this.positionToKey(position);
+                        this.occupiedPositions.set(posKey, cubeIndex);
+                    }
+                }
+            }
+            this.requestRender();
+        }
+
+        clearCuboid() {
+            this.cubes.forEach(cube => {
+                this.scene.remove(cube);
+                if (Array.isArray(cube.material)) {
+                    cube.material.forEach(mat => mat.dispose());
+                } else if (cube.material) {
+                    cube.material.dispose();
+                }
+                const line = cube.getObjectByProperty('type', 'LineSegments');
+                if (line && line.geometry) {
+                    line.geometry.dispose();
+                    cube.remove(line);
+                }
+            });
+            this.cubes = [];
+            this.cubeData = [];
+            this.originalPositions = [];
+            this.occupiedPositions.clear();
+        }
+
+        positionToKey(position) {
+            return `${Math.round(position.x)},${Math.round(position.y)},${Math.round(position.z)}`;
+        }
+
+        isPositionOccupied(position, excludeCubeIndex = -1) {
+            const key = this.positionToKey(position);
+            const occupyingCubeIndex = this.occupiedPositions.get(key);
+            return occupyingCubeIndex !== undefined && occupyingCubeIndex !== excludeCubeIndex;
+        }
+
+        updateOccupiedPosition(cubeIndex, newPosition) {
+            const cube = this.cubes[cubeIndex];
+            if (!cube) return;
+
+            const oldKey = this.positionToKey(cube.position);
+            const newKey = this.positionToKey(newPosition);
+
+            if (this.occupiedPositions.get(oldKey) === cubeIndex) {
+                this.occupiedPositions.delete(oldKey);
+            }
+            this.occupiedPositions.set(newKey, cubeIndex);
+        }
+
+        findNearestValidPosition(targetPosition, cubeIndex) {
+            const rounded = new THREE.Vector3(
+                Math.round(targetPosition.x),
+                Math.round(targetPosition.y),
+                Math.round(targetPosition.z)
+            );
+
+            if (!this.isPositionOccupied(rounded, cubeIndex)) {
+                return rounded;
+            }
+
+            const searchRadius = 3;
+            for (let radius = 1; radius <= searchRadius; radius++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    for (let dy = -radius; dy <= radius; dy++) {
+                        for (let dz = -radius; dz <= radius; dz++) {
+                            if (Math.abs(dx) === radius || Math.abs(dy) === radius || Math.abs(dz) === radius) {
+                                const testPos = new THREE.Vector3(
+                                    rounded.x + dx,
+                                    rounded.y + dy,
+                                    rounded.z + dz
+                                );
+                                if (!this.isPositionOccupied(testPos, cubeIndex)) {
+                                    return testPos;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return rounded;
+        }
+
+        resetCamera(dimensions) {
+            const maxDim = Math.max(dimensions.length, dimensions.width, dimensions.height);
+            const dist = maxDim * 1.5 + 5;
+            this.camera.position.set(dist, dist, dist);
+            this.camera.lookAt(this.scene.position);
+            this.controls.update();
+            this.requestRender();
+        }
+
+        onWindowResize(container) {
+            if (!container || container.clientWidth === 0 || container.clientHeight === 0) return;
+            const aspect = container.clientWidth / container.clientHeight;
+            this.camera.aspect = aspect;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(container.clientWidth, container.clientHeight);
+            this.requestRender();
+        }
+
+        requestRender() {
+            this.renderRequested = true;
+        }
+
+        render() {
+            if (this.renderRequested) {
+                this.renderer.render(this.scene, this.camera);
+                this.renderRequested = false;
+            }
+        }
+
+        update() {
+            if (this.controls && this.controls.enabled) {
+                if (this.controls.enableDamping || this.controls.autoRotate) {
+                    this.controls.update();
+                }
+            }
+        }
+
+        dispose() {
+            this.clearCuboid();
+            this.materialPool.dispose();
+            if (this.geometryCache) this.geometryCache.dispose();
+            if (this.lineMaterialCache) this.lineMaterialCache.dispose();
+            if (this.renderer) this.renderer.dispose();
+            if (this.previewCube) {
+                this.scene.remove(this.previewCube);
+                this.previewCube.geometry.dispose();
+                this.previewCube.material.dispose();
+            }
+        }
+    }
+
+    class InteractionHandler {
+        constructor(sceneManager, stateManager, eventBus) {
+            this.sceneManager = sceneManager;
+            this.stateManager = stateManager;
+            this.eventBus = eventBus;
+            this.raycaster = new THREE.Raycaster();
+            this.mouse = new THREE.Vector2();
+            this.pointerDownPosition = new THREE.Vector2();
+            this.selectedCubeData = null;
+            this.isDragging = false;
+            this.dragPlane = null;
+        }
+
+        getPointerCoordinates(event, container) {
+            const rect = container.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (event.pointerType === 'touch' && event.changedTouches && event.changedTouches.length > 0) {
+                clientX = event.changedTouches[0].clientX;
+                clientY = event.changedTouches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+
+            if (clientX === undefined || clientY === undefined) return null;
+            if (rect.width === 0 || rect.height === 0) return null;
+
+            const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+            return new THREE.Vector2(x, y);
+        }
+
+        updateRaycaster(coords) {
+            if (!coords) return;
+            this.mouse.copy(coords);
+            this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera);
+        }
+
+        onPointerDown(event, container) {
+            const coords = this.getPointerCoordinates(event, container);
+            if (!coords) return;
+            
+            this.pointerDownPosition.copy(coords);
+            this.isDragging = false;
+            this.selectedCubeData = null;
+            this.updateRaycaster(coords);
+            
+            const intersects = this.raycaster.intersectObjects(this.sceneManager.cubes);
+            const currentMode = this.stateManager.get('currentMode');
+
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                const clickedCube = intersect.object;
+                const cubeIndex = this.sceneManager.cubes.indexOf(clickedCube);
+                if (cubeIndex === -1) return;
+                
+                const cubeInfo = this.sceneManager.cubeData[cubeIndex];
+                this.selectedCubeData = {
+                    cube: clickedCube,
+                    cubeIndex: cubeIndex,
+                    originalPosition: clickedCube.position.clone(),
+                    gridPosition: cubeInfo.gridPosition,
+                    lastValidPosition: clickedCube.position.clone()
+                };
+
+                if (currentMode === 'drag') {
+                    this.sceneManager.controls.enabled = false;
+                    container.style.cursor = 'grabbing';
+                    
+                    const planeNormal = this.sceneManager.camera.getWorldDirection(new THREE.Vector3()).negate();
+                    this.dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+                        planeNormal, 
+                        clickedCube.position
+                    );
+                } else if (currentMode === 'color') {
+                    this.sceneManager.controls.enabled = false;
+                    this.handleColorClick(intersect, cubeIndex, cubeInfo);
+                    this.selectedCubeData = null;
+                } else {
+                    this.sceneManager.controls.enabled = true;
+                    container.style.cursor = 'grabbing';
+                }
+            } else {
+                this.sceneManager.controls.enabled = (currentMode === 'rotate');
+                container.style.cursor = this.sceneManager.controls.enabled ? 'grab' : 'default';
+            }
+        }
+
+        onPointerMove(event, container) {
+            const coords = this.getPointerCoordinates(event, container);
+            if (!coords) return;
+
+            const currentMode = this.stateManager.get('currentMode');
+
+            if (currentMode === 'drag' && this.selectedCubeData && event.buttons === 1) {
+                if (!this.isDragging) {
+                    this.isDragging = true;
+                    const materials = Array.isArray(this.selectedCubeData.cube.material)
+                        ? this.selectedCubeData.cube.material : [this.selectedCubeData.cube.material];
+                    materials.forEach(mat => { 
+                        mat.transparent = true; 
+                        mat.opacity = 0.7; 
+                    });
+                }
+
+                this.updateRaycaster(coords);
+                const target = new THREE.Vector3();
+
+                if (this.dragPlane && this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
+                    const snappedPosition = new THREE.Vector3(
+                        Math.round(target.x),
+                        Math.round(target.y),
+                        Math.round(target.z)
+                    );
+
+                    const distance = target.distanceTo(snappedPosition);
+                    if (distance < CONFIG.snapDistance) {
+                        if (!this.sceneManager.isPositionOccupied(snappedPosition, this.selectedCubeData.cubeIndex)) {
+                            this.selectedCubeData.cube.position.copy(snappedPosition);
+                            this.selectedCubeData.lastValidPosition = snappedPosition.clone();
+                            this.sceneManager.hidePreviewCube();
+                        } else {
+                            this.sceneManager.showPreviewCube(snappedPosition);
+                            this.selectedCubeData.cube.position.copy(target);
+                        }
+                    } else {
+                        this.selectedCubeData.cube.position.copy(target);
+                        this.sceneManager.hidePreviewCube();
+                    }
+                    
+                    this.sceneManager.requestRender();
+                }
+                container.style.cursor = 'grabbing';
+            } else if (!this.isDragging) {
+                if (currentMode === 'rotate' && event.buttons === 1) {
+                    container.style.cursor = 'grabbing';
+                } else if (currentMode === 'rotate') {
+                    container.style.cursor = 'grab';
+                } else if (currentMode === 'drag' || currentMode === 'color') {
+                    this.updateRaycaster(coords);
+                    const intersects = this.raycaster.intersectObjects(this.sceneManager.cubes, false);
+                    container.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
+                } else {
+                    container.style.cursor = 'default';
+                }
+            }
+        }
+
+        onPointerUp(event, container) {
+            if (this.isDragging && this.selectedCubeData) {
+                const materials = Array.isArray(this.selectedCubeData.cube.material)
+                    ? this.selectedCubeData.cube.material : [this.selectedCubeData.cube.material];
+                materials.forEach(mat => { 
+                    mat.transparent = false; 
+                    mat.opacity = 1.0; 
+                });
+
+                const currentPos = this.selectedCubeData.cube.position;
+                const snappedPos = this.sceneManager.findNearestValidPosition(
+                    currentPos, 
+                    this.selectedCubeData.cubeIndex
+                );
+                
+                this.selectedCubeData.cube.position.copy(snappedPos);
+                this.sceneManager.updateOccupiedPosition(this.selectedCubeData.cubeIndex, snappedPos);
+                
+                const originalPos = this.selectedCubeData.originalPosition;
+                const cubeOriginalPos = this.sceneManager.originalPositions[this.selectedCubeData.cubeIndex];
+                
+                if (snappedPos.distanceTo(cubeOriginalPos) > 0.1) {
+                    this.stateManager.addDisplacedCube(this.selectedCubeData.cubeIndex);
+                } else {
+                    this.stateManager.removeDisplacedCube(this.selectedCubeData.cubeIndex);
+                }
+
+                this.eventBus.emit('updateRestoreButton');
+
+                if (currentPos.distanceTo(originalPos) > CONFIG.dragSnapThreshold) {
+                    this.eventBus.emit('operation', {
+                        type: 'drag',
+                        cubeIndex: this.selectedCubeData.cubeIndex,
+                        fromPosition: originalPos.clone(),
+                        toPosition: snappedPos.clone()
+                    });
+                }
+                
+                this.sceneManager.hidePreviewCube();
+                this.sceneManager.requestRender();
+            }
+
+            this.isDragging = false;
+            this.selectedCubeData = null;
+            this.dragPlane = null;
+            const currentMode = this.stateManager.get('currentMode');
+            this.sceneManager.controls.enabled = (currentMode === 'rotate');
+            container.style.cursor = (currentMode === 'rotate') ? 'grab' : 'default';
+        }
+
+        handleColorClick(intersect, cubeIndex, cubeInfo) {
+            if (!intersect.face || !Array.isArray(intersect.object.material)) return;
+
+            const faceIndex = intersect.face.materialIndex;
+            const currentColor = this.stateManager.get('currentColor');
+            const newColor = new THREE.Color(currentColor);
+            const isPaintingWholeFace = this.stateManager.get('isPaintingWholeFace');
+
+            if (isPaintingWholeFace) {
+                this.paintWholeFace(cubeInfo.gridPosition, faceIndex, newColor);
+            } else {
+                const material = intersect.object.material[faceIndex];
+                const oldColorHex = material.color.getHex();
+                if (material.color.getHex() !== newColor.getHex()) {
+                    this.eventBus.emit('operation', {
+                        type: 'color',
+                        cubeIndex: cubeIndex,
+                        faceIndex: faceIndex,
+                        fromColor: '#' + oldColorHex.toString(16).padStart(6, '0'),
+                        toColor: currentColor
+                    });
+                    material.color.set(newColor);
+                    this.sceneManager.requestRender();
+                }
+            }
+        }
+
+        paintWholeFace(clickedGridPos, clickedFaceIndex, newColor) {
+            const dimensions = this.stateManager.get('dimensions');
+            const { length, width, height } = dimensions;
+            const operations = [];
+            let targetFaceIdentifier = null;
+            let targetFaceName = '';
+
+            if (clickedFaceIndex === 0 && clickedGridPos.x === length - 1) { 
+                targetFaceIdentifier = '+X'; 
+                targetFaceName = '右'; 
+            } else if (clickedFaceIndex === 1 && clickedGridPos.x === 0) { 
+                targetFaceIdentifier = '-X'; 
+                targetFaceName = '左'; 
+            } else if (clickedFaceIndex === 2 && clickedGridPos.y === height - 1) { 
+                targetFaceIdentifier = '+Y'; 
+                targetFaceName = '上'; 
+            } else if (clickedFaceIndex === 3 && clickedGridPos.y === 0) { 
+                targetFaceIdentifier = '-Y'; 
+                targetFaceName = '下'; 
+            } else if (clickedFaceIndex === 4 && clickedGridPos.z === width - 1) { 
+                targetFaceIdentifier = '+Z'; 
+                targetFaceName = '前'; 
+            } else if (clickedFaceIndex === 5 && clickedGridPos.z === 0) { 
+                targetFaceIdentifier = '-Z'; 
+                targetFaceName = '后'; 
+            } else {
+                const clickedCube = this.sceneManager.cubes.find(c => {
+                    const data = this.sceneManager.cubeData.find(d => d.cube === c);
+                    return data && data.gridPosition.x === clickedGridPos.x && 
+                           data.gridPosition.y === clickedGridPos.y && 
+                           data.gridPosition.z === clickedGridPos.z;
+                });
+                if (clickedCube) {
+                    const cubeIndex = this.sceneManager.cubes.indexOf(clickedCube);
+                    const material = clickedCube.material[clickedFaceIndex];
+                    const oldColorHex = material.color.getHex();
+                    if (material.color.getHex() !== newColor.getHex()) {
+                        this.eventBus.emit('operation', {
+                            type: 'color',
+                            cubeIndex: cubeIndex,
+                            faceIndex: clickedFaceIndex,
+                            fromColor: '#' + oldColorHex.toString(16).padStart(6, '0'),
+                            toColor: this.stateManager.get('currentColor')
+                        });
+                        material.color.set(newColor);
+                        this.sceneManager.requestRender();
+                    }
+                }
+                return;
+            }
+
+            this.sceneManager.cubeData.forEach((cubeInfo, index) => {
+                let isOnTargetFace = false;
+                let faceIndexToPaint = -1;
+
+                switch (targetFaceIdentifier) {
+                    case '+X': 
+                        if (cubeInfo.gridPosition.x === length - 1) { 
+                            isOnTargetFace = true; 
+                            faceIndexToPaint = 0; 
+                        } 
+                        break;
+                    case '-X': 
+                        if (cubeInfo.gridPosition.x === 0) { 
+                            isOnTargetFace = true; 
+                            faceIndexToPaint = 1; 
+                        } 
+                        break;
+                    case '+Y': 
+                        if (cubeInfo.gridPosition.y === height - 1) { 
+                            isOnTargetFace = true; 
+                            faceIndexToPaint = 2; 
+                        } 
+                        break;
+                    case '-Y': 
+                        if (cubeInfo.gridPosition.y === 0) { 
+                            isOnTargetFace = true; 
+                            faceIndexToPaint = 3; 
+                        } 
+                        break;
+                    case '+Z': 
+                        if (cubeInfo.gridPosition.z === width - 1) { 
+                            isOnTargetFace = true; 
+                            faceIndexToPaint = 4; 
+                        } 
+                        break;
+                    case '-Z': 
+                        if (cubeInfo.gridPosition.z === 0) { 
+                            isOnTargetFace = true; 
+                            faceIndexToPaint = 5; 
+                        } 
+                        break;
+                }
+
+                if (isOnTargetFace && faceIndexToPaint !== -1) {
+                    const targetCube = this.sceneManager.cubes[index];
+                    if (targetCube && Array.isArray(targetCube.material) && targetCube.material[faceIndexToPaint]) {
+                        const material = targetCube.material[faceIndexToPaint];
+                        const oldColorHex = material.color.getHex();
+                        if (oldColorHex !== newColor.getHex()) {
+                            operations.push({
+                                cubeIndex: index,
+                                faceIndex: faceIndexToPaint,
+                                fromColor: '#' + oldColorHex.toString(16).padStart(6, '0'),
+                                toColor: this.stateManager.get('currentColor')
+                            });
+                            material.color.set(newColor);
+                        }
+                    }
+                }
+            });
+
+            if (operations.length > 0) {
+                this.eventBus.emit('operation', {
+                    type: 'paintWholeFace',
+                    operations: operations
+                });
+                this.sceneManager.requestRender();
+                this.eventBus.emit('hint', `已将 ${targetFaceName} 面涂成 ${this.stateManager.get('currentColor')}`);
+            } else {
+                this.eventBus.emit('hint', `该面已经是 ${this.stateManager.get('currentColor')}，无需涂色`);
+            }
+        }
+
+        restoreAllPositions() {
+            const operations = [];
+            const displacedCubes = this.stateManager.get('displacedCubes');
+            
+            displacedCubes.forEach(cubeIndex => {
+                const cube = this.sceneManager.cubes[cubeIndex];
+                const originalPosition = this.sceneManager.originalPositions[cubeIndex];
+                
+                if (cube && originalPosition) {
+                    const currentPos = cube.position.clone();
+                    
+                    if (currentPos.distanceTo(originalPosition) > 0.1) {
+                        operations.push({
+                            cubeIndex: cubeIndex,
+                            fromPosition: currentPos,
+                            toPosition: originalPosition.clone()
+                        });
+                        
+                        cube.position.copy(originalPosition);
+                        this.sceneManager.updateOccupiedPosition(cubeIndex, originalPosition);
+                    }
+                }
+            });
+            
+            if (operations.length > 0) {
+                this.eventBus.emit('operation', {
+                    type: 'restoreAll',
+                    operations: operations
+                });
+                
+                this.stateManager.clearDisplacedCubes();
+                this.eventBus.emit('updateRestoreButton');
+                this.sceneManager.requestRender();
+                this.eventBus.emit('hint', `已将 ${operations.length} 个小立方体归位`);
+            }
+        }
+    }
+
+    class UIController {
+        constructor(stateManager, eventBus) {
+            this.stateManager = stateManager;
+            this.eventBus = eventBus;
+            this.elements = {};
+            this.hintTimeout = null;
+            this.resizeTimeout = null;
+        }
+
+        init() {
+            this.cacheElements();
+            this.setupEventListeners();
+            this.setupMobileMenu();
+            this.updateUndoButtonState();
+            this.updateRestoreButtonState();
+            this.adjustPanelLayout();
+        }
+
+        cacheElements() {
+            const ids = [
+                'render-area', 'operation-hint', 'length', 'width', 'height',
+                'update-cube', 'reset-button', 'undo-button', 'restore-position-button',
+                'loading-indicator', 'toggle-panel', 'control-panel', 
+                'toggle-paint-face', 'paint-face-toggle-container'
+            ];
+            
+            ids.forEach(id => {
+                const camelCaseId = id.replace(/-([a-z])/g, g => g[1].toUpperCase());
+                this.elements[camelCaseId] = document.getElementById(id);
+            });
+            
+            this.elements.colorSwatches = document.querySelectorAll('.color-swatch');
+            this.elements.modeButtons = document.querySelectorAll('.mode-button:not(#toggle-paint-face)');
+            this.elements.incrementButtons = document.querySelectorAll('.increment');
+            this.elements.decrementButtons = document.querySelectorAll('.decrement');
+        }
+
+        setupEventListeners() {
+            this.elements.incrementButtons.forEach(button => {
+                button.addEventListener('click', () => this.handleDimensionChange(button.dataset.target, 1));
+            });
+
+            this.elements.decrementButtons.forEach(button => {
+                button.addEventListener('click', () => this.handleDimensionChange(button.dataset.target, -1));
+            });
+
+            ['length', 'width', 'height'].forEach(dim => {
+                this.elements[dim].addEventListener('change', () => {
+                    let value = parseInt(this.elements[dim].value);
+                    if (isNaN(value) || value < CONFIG.minDimension) {
+                        this.elements[dim].value = CONFIG.minDimension;
+                    } else if (value > CONFIG.maxDimension) {
+                        this.elements[dim].value = CONFIG.maxDimension;
+                    }
+                });
+            });
+
+            this.elements.updateCube.addEventListener('click', () => this.updateCuboidDimensions());
+
+            this.elements.colorSwatches.forEach(swatch => {
+                swatch.addEventListener('click', () => this.handleColorChange(swatch));
+            });
+
+            this.elements.modeButtons.forEach(button => {
+                button.addEventListener('click', () => this.handleModeChange(button));
+            });
+
+            this.elements.resetButton.addEventListener('click', () => this.eventBus.emit('reset'));
+            this.elements.undoButton.addEventListener('click', () => this.eventBus.emit('undo'));
+            this.elements.restorePositionButton.addEventListener('click', () => this.eventBus.emit('restorePositions'));
+
+            if (this.elements.togglePaintFace) {
+                this.elements.togglePaintFace.addEventListener('click', () => this.togglePaintFaceMode());
+            }
+
+            document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
+            window.addEventListener('resize', () => this.onWindowResize());
+        }
+
+        setupMobileMenu() {
+            if (!this.elements.togglePanel || !this.elements.controlPanel) return;
+
+            this.elements.togglePanel.addEventListener('click', () => this.toggleMobilePanel());
+
+            document.addEventListener('click', (event) => {
+                if (this.elements.controlPanel.classList.contains('expanded')) {
+                    const isMobile = window.innerWidth <= 768;
+                    const clickedInsidePanel = this.elements.controlPanel.contains(event.target);
+                    const clickedOnToggle = this.elements.togglePanel.contains(event.target);
+                    if (isMobile && !clickedInsidePanel && !clickedOnToggle) {
+                        this.toggleMobilePanel();
+                    }
+                }
+            });
+
+            this.checkMobileLayout();
+        }
+
+        adjustPanelLayout() {
+            const viewportHeight = window.innerHeight;
+            const panel = this.elements.controlPanel;
+            
+            if (!panel) return;
+
+            if (viewportHeight < 550 && window.innerWidth > 768) {
+                panel.style.overflowY = 'auto';
+                panel.style.maxHeight = '100vh';
+            } else if (window.innerWidth <= 768) {
+                panel.style.overflowY = 'auto';
+                panel.style.maxHeight = '100vh';
+            } else {
+                panel.style.overflowY = 'auto';
+                panel.style.maxHeight = '100vh';
+            }
+        }
+
+        handleDimensionChange(target, delta) {
+            const input = this.elements[target];
+            if (!input) return;
+            let value = parseInt(input.value) || CONFIG.minDimension;
+            value += delta;
+            value = Math.max(CONFIG.minDimension, Math.min(CONFIG.maxDimension, value));
+            input.value = value;
+        }
+
+        updateCuboidDimensions() {
+            const length = parseInt(this.elements.length.value);
+            const width = parseInt(this.elements.width.value);
+            const height = parseInt(this.elements.height.value);
+            const currentDimensions = this.stateManager.get('dimensions');
+
+            if (length === currentDimensions.length && 
+                width === currentDimensions.width && 
+                height === currentDimensions.height) {
+                this.showHint("尺寸未改变");
+                return;
+            }
+
+            if (this.validateDimensions(length, width, height)) {
+                this.stateManager.set('dimensions', { length, width, height });
+                this.eventBus.emit('updateCuboid');
+                this.showHint(`已更新长方体尺寸: ${length}×${width}×${height}`);
+            } else {
+                this.showHint(`尺寸必须是 ${CONFIG.minDimension} 到 ${CONFIG.maxDimension} 之间的整数`, true);
+            }
+        }
+
+        validateDimensions(length, width, height) {
+            const isValid = (dim) => Number.isInteger(dim) && 
+                                     dim >= CONFIG.minDimension && 
+                                     dim <= CONFIG.maxDimension;
+            return isValid(length) && isValid(width) && isValid(height);
+        }
+
+        handleColorChange(swatch) {
+            this.elements.colorSwatches.forEach(s => s.classList.remove('active'));
+            swatch.classList.add('active');
+            this.stateManager.set('currentColor', swatch.dataset.color);
+            this.showHint(`已选择颜色: ${swatch.dataset.color}`);
+        }
+
+        handleModeChange(button) {
+            this.elements.modeButtons.forEach(b => b.classList.remove('active'));
+            button.classList.add('active');
+            this.stateManager.set('currentMode', button.dataset.mode);
+
+            const hintText = {
+                'rotate': '旋转模式: 拖动空白区域旋转视角',
+                'drag': '拖动模式: 点击并拖动小立方体',
+                'color': '涂色模式: 点击小立方体的面进行涂色'
+            };
+
+            this.showHint(hintText[button.dataset.mode] || '未知模式');
+            this.eventBus.emit('modeChanged', button.dataset.mode);
+
+            const toggleContainer = this.elements.paintFaceToggleContainer;
+            if (toggleContainer) {
+                if (button.dataset.mode === 'color') {
+                    toggleContainer.style.display = 'block';
+                    if (this.stateManager.get('isPaintingWholeFace')) {
+                        this.showHint('整面涂色已启用：点击一个面将涂色整个侧面');
+                    } else {
+                        this.showHint(hintText['color'] + ' (可启用整面涂色)');
+                    }
+                } else {
+                    toggleContainer.style.display = 'none';
+                }
+            }
+        }
+
+        togglePaintFaceMode() {
+            const isPaintingWholeFace = !this.stateManager.get('isPaintingWholeFace');
+            this.stateManager.set('isPaintingWholeFace', isPaintingWholeFace);
+            
+            const button = this.elements.togglePaintFace;
+            if (!button) return;
+
+            if (isPaintingWholeFace) {
+                button.textContent = '禁用整面涂色';
+                button.classList.add('active');
+                this.showHint('整面涂色已启用：点击一个面将涂色整个侧面');
+            } else {
+                button.textContent = '启用整面涂色';
+                button.classList.remove('active');
+                this.showHint('整面涂色已禁用：点击一个面只涂色该小块');
+            }
+        }
+
+        toggleMobilePanel() {
+            if (!this.elements.controlPanel || !this.elements.togglePanel) return;
+            const isExpanded = this.elements.controlPanel.classList.toggle('expanded');
+            this.elements.togglePanel.setAttribute('aria-expanded', isExpanded);
+        }
+
+        handleKeyboardShortcuts(event) {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+                event.preventDefault();
+                this.eventBus.emit('undo');
+            }
+            if (event.key === 'Escape' && this.elements.controlPanel.classList.contains('expanded')) {
+                this.toggleMobilePanel();
+            }
+        }
+
+        onWindowResize() {
+            if (this.resizeTimeout) cancelAnimationFrame(this.resizeTimeout);
+            this.resizeTimeout = requestAnimationFrame(() => {
+                this.checkMobileLayout();
+                this.adjustPanelLayout();
+                this.eventBus.emit('resize');
+            });
+        }
+
+        checkMobileLayout() {
+            const isMobile = window.innerWidth <= 768;
+            const isLandscapeMobile = window.innerWidth <= 768 && window.innerHeight <= 480;
+            
+            if (this.elements.togglePanel) {
+                this.elements.togglePanel.style.display = isMobile ? 'flex' : 'none';
+                
+                if (isLandscapeMobile) {
+                    this.elements.togglePanel.style.top = 'auto';
+                    this.elements.togglePanel.style.bottom = '10px';
+                    this.elements.togglePanel.style.left = '50%';
+                    this.elements.togglePanel.style.transform = 'translateX(-50%)';
+                } else if (isMobile) {
+                    this.elements.togglePanel.style.top = '10px';
+                    this.elements.togglePanel.style.bottom = 'auto';
+                    this.elements.togglePanel.style.left = '10px';
+                    this.elements.togglePanel.style.transform = 'none';
+                }
+            }
+            
+            if (!isMobile && this.elements.controlPanel && this.elements.controlPanel.classList.contains('expanded')) {
+                this.elements.controlPanel.classList.remove('expanded');
+                if (this.elements.togglePanel) {
+                    this.elements.togglePanel.setAttribute('aria-expanded', 'false');
+                }
+            }
+
+            if (this.elements.operationHint && this.elements.controlPanel) {
+                if (window.innerWidth > 1024) {
+                    this.elements.operationHint.style.left = 'var(--panel-width)';
+                    this.elements.operationHint.style.width = 'calc(100% - var(--panel-width))';
+                } else {
+                    this.elements.operationHint.style.left = '0px';
+                    this.elements.operationHint.style.width = '100%';
+                }
+            }
+        }
+
+        showHint(message, isWarning = false) {
+            const hintElement = this.elements.operationHint;
+            if (!hintElement) return;
+            
+            hintElement.textContent = message;
+            hintElement.classList.remove('fade-in');
+            void hintElement.offsetWidth;
+            hintElement.classList.add('fade-in');
+            hintElement.style.backgroundColor = isWarning ? 'var(--hint-warn-bg)' : 'var(--hint-bg)';
+
+            if (this.hintTimeout) clearTimeout(this.hintTimeout);
+            
+            if (isWarning) {
+                this.hintTimeout = setTimeout(() => {
+                    if (hintElement && hintElement.textContent === message) {
+                        hintElement.style.backgroundColor = 'var(--hint-bg)';
+                    }
+                    this.hintTimeout = null;
+                }, 2500);
+            }
+        }
+
+        toggleLoadingIndicator(show) {
+            if (!this.elements.loadingIndicator) return;
+            if (show) {
+                this.elements.loadingIndicator.style.display = 'block';
+                this.elements.loadingIndicator.setAttribute('aria-busy', 'true');
+            } else {
+                setTimeout(() => {
+                    if (!this.stateManager.get('isLoading')) {
+                        this.elements.loadingIndicator.style.display = 'none';
+                        this.elements.loadingIndicator.setAttribute('aria-busy', 'false');
+                    }
+                }, 100);
+            }
+        }
+
+        updateUndoButtonState() {
+            const history = this.stateManager.get('operationHistory');
+            this.elements.undoButton.disabled = (history.length === 0);
+        }
+
+        updateRestoreButtonState() {
+            const hasDisplaced = this.stateManager.hasDisplacedCubes();
+            this.elements.restorePositionButton.disabled = !hasDisplaced;
+        }
+
+        reset() {
+            this.stateManager.update({
+                dimensions: { ...CONFIG.defaultDimensions },
+                currentColor: CONFIG.defaultColor,
+                currentMode: CONFIG.defaultMode,
+                isPaintingWholeFace: false,
+                operationHistory: [],
+                displacedCubes: []
+            });
+
+            this.elements.length.value = CONFIG.defaultDimensions.length;
+            this.elements.width.value = CONFIG.defaultDimensions.width;
+            this.elements.height.value = CONFIG.defaultDimensions.height;
+
+            this.elements.colorSwatches.forEach(swatch => 
+                swatch.classList.toggle('active', swatch.dataset.color === CONFIG.defaultColor)
+            );
+            
+            this.elements.modeButtons.forEach(button => 
+                button.classList.toggle('active', button.dataset.mode === CONFIG.defaultMode)
+            );
+
+            if (this.elements.togglePaintFace) {
+                this.elements.togglePaintFace.textContent = '启用整面涂色';
+                this.elements.togglePaintFace.classList.remove('active');
+            }
+            
+            if (this.elements.paintFaceToggleContainer) {
+                this.elements.paintFaceToggleContainer.style.display = 'none';
+            }
+
+            this.updateUndoButtonState();
+            this.updateRestoreButtonState();
+        }
+    }
+
+    class HistoryManager {
+        constructor(maxLength = 20) {
+            this.history = [];
+            this.maxLength = maxLength;
+        }
+
+        push(operation) {
+            this.history.push(operation);
+            if (this.history.length > this.maxLength) {
+                this.history.shift();
+            }
+        }
+
+        pop() {
+            return this.history.pop();
+        }
+
+        clear() {
+            this.history = [];
+        }
+
+        get length() {
+            return this.history.length;
+        }
+    }
+
+    class CuboidApp {
+        constructor() {
+            this.eventBus = new EventBus();
+            this.stateManager = new StateManager();
+            this.sceneManager = new SceneManager();
+            this.historyManager = new HistoryManager(CONFIG.maxHistoryLength);
+            this.uiController = new UIController(this.stateManager, this.eventBus);
+            this.interactionHandler = null;
+            this.throttledPointerMove = null;
+        }
+
+        init() {
+            if (!this.checkWebGLCompatibility()) {
+                this.showError("WebGL is not supported or disabled in your browser.");
+                return false;
+            }
+
+            this.uiController.init();
+            
+            const renderArea = document.getElementById('render-area');
+            this.sceneManager.init(renderArea);
+            
+            this.interactionHandler = new InteractionHandler(
+                this.sceneManager, 
+                this.stateManager, 
+                this.eventBus
+            );
+
+            this.throttledPointerMove = this.throttle(
+                (e) => this.interactionHandler.onPointerMove(e, renderArea), 
+                16
+            );
+
+            this.setupEventHandlers();
+            this.sceneManager.createCuboid(this.stateManager.get('dimensions'));
+            this.animate();
+            
+            return true;
+        }
+
+        checkWebGLCompatibility() {
+            try {
+                const canvas = document.createElement('canvas');
+                return !!(window.WebGLRenderingContext &&
+                    (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+            } catch (e) {
+                console.error("WebGL compatibility check failed:", e);
+                return false;
+            }
+        }
+
+        setupEventHandlers() {
+            const renderArea = document.getElementById('render-area');
+            const rendererElement = this.sceneManager.renderer.domElement;
+
+            rendererElement.addEventListener('pointerdown', 
+                (e) => this.interactionHandler.onPointerDown(e, renderArea));
+            rendererElement.addEventListener('pointermove', this.throttledPointerMove);
+            rendererElement.addEventListener('pointerup', 
+                (e) => this.interactionHandler.onPointerUp(e, renderArea));
+            rendererElement.addEventListener('pointerleave', 
+                (e) => this.interactionHandler.onPointerUp(e, renderArea));
+            rendererElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            this.eventBus.on('operation', (operation) => {
+                this.historyManager.push(operation);
+                this.stateManager.set('operationHistory', 
+                    Array.from({length: this.historyManager.length}));
+                this.uiController.updateUndoButtonState();
+            });
+
+            this.eventBus.on('undo', () => this.undoOperation());
+            this.eventBus.on('reset', () => this.reset());
+            this.eventBus.on('updateCuboid', () => this.updateCuboid());
+            this.eventBus.on('resize', () => this.sceneManager.onWindowResize(renderArea));
+            this.eventBus.on('hint', (message) => this.uiController.showHint(message));
+            this.eventBus.on('restorePositions', () => this.interactionHandler.restoreAllPositions());
+            this.eventBus.on('updateRestoreButton', () => this.uiController.updateRestoreButtonState());
+            
+            this.eventBus.on('modeChanged', (mode) => {
+                this.sceneManager.controls.enabled = (mode === 'rotate');
+                renderArea.style.cursor = (mode === 'rotate') ? 'grab' : 'default';
+            });
+        }
+
+        updateCuboid() {
+            this.uiController.toggleLoadingIndicator(true);
+            requestAnimationFrame(() => {
+                const dimensions = this.stateManager.get('dimensions');
+                this.sceneManager.createCuboid(dimensions);
+                this.sceneManager.resetCamera(dimensions);
+                this.historyManager.clear();
+                this.stateManager.set('operationHistory', []);
+                this.stateManager.clearDisplacedCubes();
+                this.uiController.updateUndoButtonState();
+                this.uiController.updateRestoreButtonState();
+                this.uiController.toggleLoadingIndicator(false);
+            });
+        }
+
+        undoOperation() {
+            const operation = this.historyManager.pop();
+            if (!operation) {
+                this.uiController.showHint("没有可撤销的操作", true);
+                return;
+            }
+
+            try {
+                if (operation.type === 'paintWholeFace') {
+                    operation.operations.forEach(op => {
+                        const targetCube = this.sceneManager.cubes[op.cubeIndex];
+                        if (targetCube && Array.isArray(targetCube.material) && targetCube.material[op.faceIndex]) {
+                            targetCube.material[op.faceIndex].color.set(op.fromColor);
+                        }
+                    });
+                    this.uiController.showHint("已撤销整面涂色");
+                } else if (operation.type === 'color') {
+                    const targetCube = this.sceneManager.cubes[operation.cubeIndex];
+                    if (targetCube && Array.isArray(targetCube.material) && targetCube.material[operation.faceIndex]) {
+                        targetCube.material[operation.faceIndex].color.set(operation.fromColor);
+                        this.uiController.showHint("已撤销涂色");
+                    }
+                } else if (operation.type === 'drag') {
+                    const targetCube = this.sceneManager.cubes[operation.cubeIndex];
+                    if (targetCube) {
+                        targetCube.position.copy(operation.fromPosition);
+                        this.sceneManager.updateOccupiedPosition(operation.cubeIndex, operation.fromPosition);
+                        
+                        const originalPos = this.sceneManager.originalPositions[operation.cubeIndex];
+                        if (operation.fromPosition.distanceTo(originalPos) > 0.1) {
+                            this.stateManager.addDisplacedCube(operation.cubeIndex);
+                        } else {
+                            this.stateManager.removeDisplacedCube(operation.cubeIndex);
+                        }
+                        this.uiController.updateRestoreButtonState();
+                        this.uiController.showHint("已撤销拖动");
+                    }
+                } else if (operation.type === 'restoreAll') {
+                    operation.operations.forEach(op => {
+                        const targetCube = this.sceneManager.cubes[op.cubeIndex];
+                        if (targetCube) {
+                            targetCube.position.copy(op.fromPosition);
+                            this.sceneManager.updateOccupiedPosition(op.cubeIndex, op.fromPosition);
+                            this.stateManager.addDisplacedCube(op.cubeIndex);
+                        }
+                    });
+                    this.uiController.updateRestoreButtonState();
+                    this.uiController.showHint("已撤销归位");
+                }
+                
+                this.sceneManager.requestRender();
+                this.stateManager.set('operationHistory', 
+                    Array.from({length: this.historyManager.length}));
+                this.uiController.updateUndoButtonState();
+            } catch (error) {
+                console.error("Error during undo:", error);
+                this.uiController.showHint("撤销操作失败", true);
+            }
+        }
+
+        reset() {
+            this.uiController.reset();
+            this.historyManager.clear();
+            this.updateCuboid();
+            this.uiController.showHint("已重置为默认状态");
+        }
+
+        throttle(func, wait) {
+            let timeout = null;
+            let lastArgs = null;
+            let lastThis = null;
+            let trailingCallScheduled = false;
+
+            function throttled(...args) {
+                const context = this;
+                lastArgs = args;
+                lastThis = context;
+
+                if (!timeout) {
+                    func.apply(lastThis, lastArgs);
+                    timeout = setTimeout(() => {
+                        timeout = null;
+                        if (trailingCallScheduled) {
+                            throttled.apply(lastThis, lastArgs);
+                            trailingCallScheduled = false;
+                        }
+                    }, wait);
+                } else {
+                    trailingCallScheduled = true;
+                }
+            }
+            
+            throttled.cancel = () => {
+                clearTimeout(timeout);
+                timeout = null;
+                trailingCallScheduled = false;
+            };
+            
+            return throttled;
+        }
+
+        animate() {
+            requestAnimationFrame(() => this.animate());
+            this.sceneManager.update();
+            this.sceneManager.render();
+        }
+
+        showError(message) {
+            console.error("Application Error:", message);
+            this.uiController.showHint(`错误: ${message}`, true);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const app = new CuboidApp();
+        if (!app.init()) {
+            document.body.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: red; font-family: sans-serif;">
+                    应用程序初始化失败。请确保您的浏览器支持WebGL并已启用。
+                </div>`;
+        }
+    });
+    </script>
+</body>
+</html>
